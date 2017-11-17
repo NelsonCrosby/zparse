@@ -1,0 +1,135 @@
+
+wsc := [ \ \t \n ]
+ws := wsc*
+wsep := wsc+
+
+comment := '`' any *? \n
+
+_ := ( ws | comment )*
+__ := ( wsep | comment )+
+
+
+kw.nil := "nil"
+kw.true := "true"
+kw.false := "false"
+
+kw.ref := "ref"
+kw.ptr := "ptr"
+
+kw.struct := "struct"
+kw.iface := "interface"
+
+kw.do := "do"
+kw.then := "then"
+kw.with := "with"
+kw.end := "end"
+
+kw.for := "for"
+kw.while := "while"
+kw.if := "if"
+kw.elif := "elif"
+kw.else := "else"
+kw.let := "let"
+
+kw.in := "in"
+kw.break := "break"
+kw.cont := "continue"
+kw.return := "return"
+
+
+lit.int.dec := [ +- ]? [ 0-9 _ ]*
+lit.int.hex := '#' [ 0-9 A-F a-f _ ]*
+lit.int.bin := "b#" [ 01 _ ] *
+lit.int.oct := "o#" [ 0-7 _ ] *
+lit.int := .dec | .hex | .bin | .oct
+
+lit.float.simple := int.dec '.' [ 0-9 _ ]*
+lit.float := .simple [ eE ] int.dec
+
+lit.char.normal := ! [ \\ \' \" \n ]
+lit.char.escape := \\ ( ! \n )
+lit.char.any := normal | escape
+lit.char := \' ( .any | \" ) \'
+
+lit.string.simple := '"' ( char.any | \' ) *? '"'
+lit.string := .simple ( _ .simple )*
+
+lit := .int | .float | .char | .string
+
+
+expr.name.simple := [ a-z A-Z _ ] [ a-z A-Z 0-9 _ ]*
+expr.name.symbol := '(' _ qual _ ')'
+expr.name.part := '.' _ simple | symbol
+expr.name.qual := simple | ( simple? _ part+ )
+expr.name := .symbol | .qual
+
+expr.op := # TODO
+
+expr.type.name := name.qual
+expr.type.struct := kw.struct __ block.with.expr
+expr.type.iface := kw.iface __ block.with.expr
+expr.type.basic := name | struct | iface
+
+expr.type.param := '[' _ type ( _ ',' _ type )* _ ']'
+
+expr.type.ref := kw.ref
+expr.type.ptr := kw.ptr
+expr.type.refptr := ref __ ptr
+expr.type.mod := ref | ptr | refptr
+
+expr.type := directives _ .basic ( _ .param )? ( _ mod )?
+
+expr.list := expr ( _ ',' _ expr )*
+
+expr.call.param := '(' ( _ expr.list )? _ ')'
+expr.call := expr _ .param
+
+expr.bind.decl := expr.name.simple _ ':' _ expr.type
+expr.bind.local := expr.name.simple _ ':' ( _ expr.type )? '=' expr
+expr.bind.assign := expr.name.qual _ '=' _ expr
+expr.bind := .local | .assign
+
+expr.let := kw.let ( _ expr.bind )+ _ kw.in _ expr
+
+expr.if.then := expr _ kw.then _ expr
+expr.if.if := kw.if _ .then
+expr.if.elif := kw.elif _ .then
+expr.if.else := kw.else _ expr
+expr.if := .if ( _ .elif ) * _ .else _ kw.end
+
+expr.lambda.param1 := expr.name.simple | expr.bind.decl
+expr.lambda.param := .param1 ( _ ',' _ .param1 )*
+expr.lambda := '(' ( _ .param )? _ "->" _ expr _ ')'
+
+# TODO
+expr := lit | .name | .call | .bind | .let | .if | .lambda
+
+
+directive := '[' _ expr.name.qual ( _ expr )* _ ']'
+directives := ( directive ( _ directive )* )?
+
+
+stmt.jmp.break := kw.break
+stmt.jmp.cont := kw.cont
+stmt.jmp.return := kw.return ( _ expr )?
+stmt.jmp := .break | .cont | .return
+
+stmt.while := kw.while _ expr _ block.do
+stmt.for._in := _ expr.name _ kw.in _ expr
+stmt.for._step := ( _ expr )? ( _ kw.in _ expr )? ( _ kw.while _ expr )?
+stmt.for := kw.for ._in | ._step _ block.do
+
+stmt.if.then := expr _ kw.then _ block.do.body
+stmt.if.if := kw.if _ .then
+stmt.if.elif := kw.elif _ .then
+stmt.if.else := kw.else _ block.do.body
+stmt.if := .if ( _ .elif )* ( _ .else )? _ kw.end
+
+# TODO
+stmt := expr | .jmp | .while | .for | .if
+
+
+block.with.expr := # TODO
+block.with := # TODO
+block.do.body := ( stmt ( _ stmt )* )?
+block.do := kw.do _ .body _ kw.end

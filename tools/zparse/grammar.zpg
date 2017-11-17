@@ -1,0 +1,46 @@
+
+wsc := [ \ \t ]
+_ := wsc*
+__ := wsc+
+
+
+name.simple := [ a-z A-Z _ ]+
+name.part := '.' simple
+name.qual := simple part*
+name := .qual | .part+
+
+
+pattern.ref := name
+
+pattern.lit.char.esc := [ \ \\ \" \' \- \] nrt ]
+pattern.lit.char.quot := [ a-z A-Z ] | !( esc | \n | \r | \t )
+pattern.lit.char.any := quot | ( \\ esc )
+pattern.lit.char := ( \' quot \' ) | ( \\ esc )
+pattern.lit.string := \" char.any*? \"
+pattern.lit.class.range := char.any \- char.any
+pattern.lit.class.part := range | char.any
+pattern.lit.class := '[' ( _ .part )+ _ ']'
+pattern.lit := .char | .string | .class
+
+pattern.repeat.part := ref | lit | group
+pattern.repeat.zero_one := part _ '?'
+pattern.repeat.zero_many := part _ '*'
+pattern.repeat.one_many := part _ '+'
+pattern.repeat.greedy := zero_many | one_many
+pattern.repeat := .zero_one | ( .greedy '?'? )
+
+pattern.negate := '!' _ ( repeat.part | repeat )
+
+pattern.altern.part := repeat.part | repeat | negate
+pattern.altern := .part _ '|' _ .part
+
+pattern.seq.part := altern.part | altern
+pattern.seq := ( _ .part )+
+
+pattern.group := '(' seq ')'
+
+pattern := .seq
+
+
+binding := name.qual _ ":=" _ pattern \n
+grammar := binding*
